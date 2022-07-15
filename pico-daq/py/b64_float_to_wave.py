@@ -3,7 +3,6 @@ import scipy.io.wavfile
 import numpy as np
 import base64
 import io
-import matplotlib.pyplot as plt
 
 if __name__=="__main__":
     infile = "/Users/alex/Desktop/float-test/noise"
@@ -37,9 +36,6 @@ if __name__=="__main__":
             num_idx = num_idx+1
             byte_idx = byte_idx + 4
     
-    #plt.plot(data)
-    #plt.show()
-
     wav_io = io.BytesIO()
     scipy.io.wavfile.write(wav_io, 4000, data)
     wav_io.seek(0)
