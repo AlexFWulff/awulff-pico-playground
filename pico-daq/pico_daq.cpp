@@ -96,7 +96,7 @@ int main() {
       }
 	    
       for (uint32_t i=0; i<NSAMP; i++) {
-	features[i] = ((float)capture_buf[i]-(float)min)/((float)max-(float)min)*2-1;
+	sending_buf[i] = ((float)capture_buf[i]-(float)min)/((float)max-(float)min)*2-1;
       }
     }
 }
