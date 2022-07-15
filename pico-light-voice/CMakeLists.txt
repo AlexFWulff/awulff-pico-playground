@@ -13,6 +13,7 @@ pico_sdk_init()
 
 add_executable(pico-voice
   source/main.cpp
+  source/lights.cpp
   )
 
 include(${MODEL_FOLDER}/edge-impulse-sdk/cmake/utils.cmake)
