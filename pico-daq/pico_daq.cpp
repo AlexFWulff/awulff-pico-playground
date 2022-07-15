@@ -14,15 +14,15 @@
 // 0     = 500,000 Hz
 // 960   = 50,000 Hz
 // 9600  = 5,000 Hz
-#define CLOCK_DIV 9600
+#define CLOCK_DIV 12000
 
 // Channel 0 is GPIO26
 #define CAPTURE_CHANNEL 0
 #define LED_PIN 25
-#define NSAMP 20000
+#define NSAMP 10000
 
 uint16_t capture_buf[NSAMP];
-uint16_t sending_buf[NSAMP];
+float sending_buf[NSAMP];
 
 int main() {
     stdio_init_all();
@@ -77,16 +77,26 @@ int main() {
       gpio_put(LED_PIN, 1);
       adc_run(true);
 
-      // first transmission will be garbage since we haven't filled the buffer yet
+      // first transmission will be garbage since we haven't filled buf
       std::string encoded =
-	base64_encode((unsigned char const *)sending_buf, NSAMP*2);
+	base64_encode((unsigned char const *)sending_buf, NSAMP*4);
+      
       printf("%s", encoded.c_str());
 
       gpio_put(LED_PIN, 0);
 
       dma_channel_wait_for_finish_blocking(dma_chan);
 
-      
-      memcpy(sending_buf, capture_buf, NSAMP*2);
+      uint16_t min = 32768;
+      uint16_t max = 0;
+	
+      for (uint32_t i=0; i<NSAMP; i++) {
+	if (capture_buf[i] > max) max = capture_buf[i];
+	if (capture_buf[i] < min) min = capture_buf[i];
+      }
+	    
+      for (uint32_t i=0; i<NSAMP; i++) {
+	features[i] = ((float)capture_buf[i]-(float)min)/((float)max-(float)min)*2-1;
+      }
     }
 }

@@ -3,8 +3,8 @@ import numpy as np
 import base64
 
 if __name__=="__main__":
-    infile = "/Users/alex/Desktop/pico/other-3"
-    outfile = "/Users/alex/Desktop/pico/other.wav"
+    infile = "/Users/alex/Desktop/4khz/extinguish"
+    outfile = "/Users/alex/Desktop/4khz/extinguish.wav"
 
     f = open(infile, "r")
 
@@ -28,7 +28,7 @@ if __name__=="__main__":
     audio = AudioSegment(
         data.tobytes(),
         sample_width=2,
-        frame_rate=5000,
+        frame_rate=4000,
         channels=1
     )
     
