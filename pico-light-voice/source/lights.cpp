@@ -1,8 +1,10 @@
-#define PIN 7
-
 #include <pico/multicore.h>
 #include <stdio.h>
 #include "Adafruit_NeoPixel.hpp"
+
+#define PIN 7
+#define NUM_STATES 4
+#define NUM_LIGHTS 60
 
 bool update_state(uint32_t *state, bool strip_on) {
   // check for new state information
@@ -24,8 +26,8 @@ bool update_state(uint32_t *state, bool strip_on) {
 	return true;
       }
 
-      // SET NUM STATES HERE
-      *state = (*state+1) % 3;
+      // check this!!
+      *state = (*state+1) % NUM_STATES;
       printf("Incrementing state to %u\n", *state);
       multicore_fifo_push_blocking(0);
       return true;
@@ -37,11 +39,10 @@ bool update_state(uint32_t *state, bool strip_on) {
 }
 
 void core1_entry() {
-  Adafruit_NeoPixel strip = Adafruit_NeoPixel(60, PIN,
+  Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUM_LIGHTS, PIN,
 					      NEO_GRB + NEO_KHZ800);
   strip.begin();
-  //strip.setBrightness(64);
-  strip.show();
+  strip.setBrightness(64);
   
   // tell the other core we're ready for data
   multicore_fifo_push_blocking(0);
@@ -105,6 +106,15 @@ void core1_entry() {
       strip.show();
       sleep_ms(100);
     }
+
+    // boring
+    else if (state == 2) {
+      for(int i=0; i< strip.numPixels(); i++) {
+	strip.setPixelColor(i, strip.Color(10,50,5));
+      }
+
+      strip.show();
+      sleep_ms(100);
+    }
   }
 }
-

@@ -107,18 +107,21 @@ int main()
 
     if (EI_CLASSIFIER_HAS_ANOMALY == 1) printf("Anomaly!\n");
 
-    const float thresh = 0.7;
+    const float thresh = 0.8;
     
     uint32_t state = 0;
     for (size_t ix = 0; ix < EI_CLASSIFIER_LABEL_COUNT; ix++) {
-      if (ix == 0 && result.classification[ix].value > thresh) {
-	//printf("EXTINGUISH\n");
-	//state = 1;
+      if (ix == 2 && result.classification[ix].value > thresh) {
+	printf("START\n");
+	// Set the state to 1 for the keyword you use to turn the lights
+	// on and change the lighting state
+	state = 1;
       }
       
-      if (ix == 1 && result.classification[ix].value > thresh) {
-	//printf("ILLUMINATE\n");
-	//state = 2;
+      if (ix == 3 && result.classification[ix].value > thresh) {
+	printf("STOP\n");
+	// Set the state to 2 for the keyword that turns off the lights
+	state = 2;
       }
 
       printf("%0.2f, ",result.classification[ix].value);
@@ -126,6 +129,8 @@ int main()
 
     printf("\n");
 
+    // If the lighting core wants a state update, and there's a state
+    // update to give, then we'll send it over.
     if (multicore_fifo_rvalid() && state != 0) {
       multicore_fifo_pop_blocking();
       multicore_fifo_push_blocking(state);
@@ -134,22 +139,8 @@ int main()
     gpio_put(LED_PIN, 0);
     dma_channel_wait_for_finish_blocking(dma_chan);
 
-    // copy everything to feature buffer to run model
-    // this is probably slow, idk
-
-    // copy everything to feature buffer to run model
-    // this is probably slow, idk
-    /*
-    uint64_t sum = 0;
-    for (uint32_t i=0; i<NSAMP; i++) {
-      sum += capture_buf[i];
-    }
-    float dc_offset = (float)sum/NSAMP;
-    
-    for (uint32_t i=0; i<NSAMP; i++) {
-      features[i] = (float)capture_buf[i]-dc_offset;
-    }
-    */
+    // copy everything to feature buffer. This math is so slow but
+    // it doesn't matter in comparison to the other ML ops?
     uint16_t min = 32768;
     uint16_t max = 0;
 	
@@ -159,7 +150,9 @@ int main()
     }
 	    
     for (uint32_t i=0; i<NSAMP; i++) {
-      features[i] = ((float)capture_buf[i]-(float)min)/((float)max-(float)min)*2-1;
+      float val = ((float)capture_buf[i]-(float)min)/((float)max-(float)min)*2-1;
+      val = val*32766;
+      features[i] = val;
     }
   }
 }
