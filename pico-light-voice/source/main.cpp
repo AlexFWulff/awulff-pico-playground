@@ -12,17 +12,22 @@
 
 // ############ ADC and Model Stuff ############
 
-#define NSAMP 4000
+#define NSAMP 1000
+#define INSIZE 4000
+
 // set this to determine sample rate
 // 0     = 500,000 Hz
 // 960   = 50,000 Hz
 // 9600  = 5,000 Hz
 #define CLOCK_DIV 12000
+
 #define CAPTURE_CHANNEL 0
 #define LED_PIN 25
+#define COOLDOWN_US 1000000
 
-float features[NSAMP];
+float features[INSIZE];
 uint16_t capture_buf[NSAMP];
+uint16_t intermediate_buf[INSIZE];
 
 // ############ Functions ############
 int raw_feature_get_data(size_t offset, size_t length, float *out_ptr) {
@@ -44,10 +49,10 @@ int main()
   ei_impulse_result_t result = {nullptr};
 
   signal_t features_signal;
-  features_signal.total_length = NSAMP;
+  features_signal.total_length = INSIZE;
   features_signal.get_data = &raw_feature_get_data;
 
-  if (NSAMP != EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE) {
+  if (INSIZE != EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE) {
     while (1) {
       printf("Input frame size incorrect!\n");
       sleep_ms(2000);
@@ -82,6 +87,8 @@ int main()
   // Pace transfers based on availability of ADC samples
   channel_config_set_dreq(&cfg, DREQ_ADC);
 
+  uint64_t last_on_time = 0;
+  
   while (true) {
     adc_fifo_drain();
     adc_run(false);
@@ -95,6 +102,22 @@ int main()
 
     gpio_put(LED_PIN, 1);
     adc_run(true);
+
+    // copy everything to feature buffer. This math is so slow but
+    // it doesn't matter in comparison to the other ML ops?
+    uint16_t min = 32768;
+    uint16_t max = 0;
+
+    for (uint32_t i=0; i<INSIZE; i++) {
+      if (intermediate_buf[i] > max) max = intermediate_buf[i];
+      if (intermediate_buf[i] < min) min = intermediate_buf[i];
+    }
+    
+    for (uint32_t i=0; i<INSIZE; i++) {
+      float val = ((float)intermediate_buf[i]-(float)min)/((float)max-(float)min)*2-1;
+      val = val*32766;
+      features[i] = val;
+    }
     
     // invoke the impulse
     EI_IMPULSE_ERROR res = run_classifier(&features_signal, &result,
@@ -107,12 +130,14 @@ int main()
 
     if (EI_CLASSIFIER_HAS_ANOMALY == 1) printf("Anomaly!\n");
 
-    const float thresh = 0.8;
+    const float thresh = 0.6;
     
     uint32_t state = 0;
     for (size_t ix = 0; ix < EI_CLASSIFIER_LABEL_COUNT; ix++) {
-      if (ix == 2 && result.classification[ix].value > thresh) {
+      if (ix == 2 && result.classification[ix].value > thresh &&
+	  time_us_64()-last_on_time>COOLDOWN_US) {
 	printf("START\n");
+	last_on_time = time_us_64();
 	// Set the state to 1 for the keyword you use to turn the lights
 	// on and change the lighting state
 	state = 1;
@@ -139,20 +164,15 @@ int main()
     gpio_put(LED_PIN, 0);
     dma_channel_wait_for_finish_blocking(dma_chan);
 
-    // copy everything to feature buffer. This math is so slow but
-    // it doesn't matter in comparison to the other ML ops?
-    uint16_t min = 32768;
-    uint16_t max = 0;
-	
-    for (uint32_t i=0; i<NSAMP; i++) {
-      if (capture_buf[i] > max) max = capture_buf[i];
-      if (capture_buf[i] < min) min = capture_buf[i];
+    // wrap newest samples to beginning
+    for (uint32_t i=0; i<INSIZE-NSAMP; i++) {
+      intermediate_buf[i] = intermediate_buf[i+NSAMP];
     }
-	    
+
+    // fill buffer with new data
     for (uint32_t i=0; i<NSAMP; i++) {
-      float val = ((float)capture_buf[i]-(float)min)/((float)max-(float)min)*2-1;
-      val = val*32766;
-      features[i] = val;
+      intermediate_buf[i+INSIZE-NSAMP] = capture_buf[i];
     }
+    
   }
 }

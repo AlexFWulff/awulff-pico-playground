@@ -3,7 +3,7 @@
 #include "Adafruit_NeoPixel.hpp"
 
 #define PIN 7
-#define NUM_STATES 4
+#define NUM_STATES 3
 #define NUM_LIGHTS 60
 
 bool update_state(uint32_t *state, bool strip_on) {
