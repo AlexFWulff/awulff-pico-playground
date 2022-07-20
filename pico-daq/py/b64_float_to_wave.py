@@ -5,8 +5,8 @@ import base64
 import io
 
 if __name__=="__main__":
-    infile = "/Users/alex/Desktop/float-test/noise"
-    outfile = "/Users/alex/Desktop/float-test/noise.wav"
+    infile = "/Users/alex/Desktop/float-test/stop-2"
+    outfile = "/Users/alex/Desktop/float-test/stop.wav"
 
     f = open(infile, "r")
 
@@ -23,13 +23,19 @@ if __name__=="__main__":
     dt = np.dtype(np.float32)
     dt = dt.newbyteorder('<')
 
+    # It appears that a few bytes are lost during the serial data
+    # transmission. This causes all the float data to be messed up
+    # after a byte loss, so if we detect strange float values then
+    # skip those THREE bytes (because one is lost)
     data = np.zeros(int(len(byte_data)/4), dtype=dt)
     num_idx = 0
     byte_idx = 0
     while byte_idx < len(byte_data)-4:
         num = np.frombuffer(byte_data[byte_idx:byte_idx+4], dtype=dt)
+        # Data coming off pico should be normalized between -1 and 1.
+        # If it's not, we know that there was some data loss.
         if (num > 1 or num < -1):
-            print("Skipped one")
+            #print("Skipped one")
             byte_idx = byte_idx + 3
         else:
             data[num_idx] = num[0]
